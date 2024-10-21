@@ -10,6 +10,7 @@
 #include <linux/i2c.h>
 #include <linux/module.h>
 #include <linux/of.h>
+#include <linux/of_device.h>
 #include <linux/pm_runtime.h>
 #include <linux/regmap.h>
 #include <linux/regulator/consumer.h>
@@ -1189,7 +1190,7 @@ err_power:
 	return ret;
 }
 
-static void imx296_remove(struct i2c_client *client)
+static int imx296_remove(struct i2c_client *client)
 {
 	struct v4l2_subdev *subdev = i2c_get_clientdata(client);
 	struct imx296 *sensor = to_imx296(subdev);
@@ -1206,6 +1207,8 @@ static void imx296_remove(struct i2c_client *client)
 	if (!pm_runtime_status_suspended(sensor->dev))
 		imx296_power_off(sensor);
 	pm_runtime_set_suspended(sensor->dev);
+
+	return 0;
 }
 
 static const struct of_device_id imx296_of_match[] = {
@@ -1222,7 +1225,7 @@ static struct i2c_driver imx296_i2c_driver = {
 		.name = "imx296",
 		.pm = &imx296_pm_ops
 	},
-	.probe = imx296_probe,
+	.probe_new = imx296_probe,
 	.remove = imx296_remove,
 };
 
