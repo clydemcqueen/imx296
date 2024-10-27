@@ -261,34 +261,9 @@ static int imx296_write(struct imx296 *sensor, u32 addr, u32 value, int *err)
 	return ret;
 }
 
-/*
- * The supported formats.
- * This table MUST contain 4 entries per format, to cover the various flip
- * combinations in the order
- * - no flip
- * - h flip
- * - v flip
- * - h&v flips
- */
-static const u32 mbus_codes[] = {
-	/* 10-bit modes. */
-	MEDIA_BUS_FMT_SRGGB10_1X10,
-	MEDIA_BUS_FMT_SGRBG10_1X10,
-	MEDIA_BUS_FMT_SGBRG10_1X10,
-	MEDIA_BUS_FMT_SBGGR10_1X10,
-};
-
 static u32 imx296_mbus_code(const struct imx296 *sensor)
 {
-	unsigned int i = 0;
-
-	if (sensor->mono)
-		return MEDIA_BUS_FMT_Y10_1X10;
-
-	if (sensor->vflip && sensor->hflip)
-		i = (sensor->vflip->val ? 2 : 0) | (sensor->hflip->val ? 1 : 0);
-
-	return mbus_codes[i];
+	return sensor->mono ? MEDIA_BUS_FMT_Y10_1X10 : MEDIA_BUS_FMT_SRGGB10_1X10;
 }
 
 static int imx296_power_on(struct imx296 *sensor)
