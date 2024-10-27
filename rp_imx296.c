@@ -571,7 +571,7 @@ static const struct {
 	{ IMX296_REG_8BIT(0x4174), 0x00 },
 };
 
-static int imx296_setup(struct imx296 *sensor, struct v4l2_subdev_state *state)
+static int imx296_setup(struct imx296 *sensor)
 {
 	unsigned int i;
 	int ret = 0;
@@ -675,10 +675,7 @@ static int imx296_stream_off(struct imx296 *sensor)
 static int imx296_s_stream(struct v4l2_subdev *sd, int enable)
 {
 	struct imx296 *sensor = to_imx296(sd);
-	struct v4l2_subdev_state *state;
 	int ret;
-
-	state = v4l2_subdev_lock_and_get_active_state(sd);
 
 	if (!enable) {
 		ret = imx296_stream_off(sensor);
@@ -695,7 +692,7 @@ static int imx296_s_stream(struct v4l2_subdev *sd, int enable)
 	if (ret < 0)
 		goto unlock;
 
-	ret = imx296_setup(sensor, state);
+	ret = imx296_setup(sensor);
 	if (ret < 0)
 		goto err_pm;
 
@@ -715,7 +712,7 @@ static int imx296_s_stream(struct v4l2_subdev *sd, int enable)
 		goto err_pm;
 
 unlock:
-	v4l2_subdev_unlock_state(state);
+	// TODO unlock
 
 	return ret;
 
