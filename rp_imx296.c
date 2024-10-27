@@ -357,14 +357,11 @@ static const char * const imx296_test_pattern_menu[] = {
 static int imx296_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct imx296 *sensor = container_of(ctrl->handler, struct imx296, ctrls);
-	struct v4l2_subdev_state *state;
 	unsigned int vmax;
 	int ret = 0;
 
 	if (!sensor->streaming)
 		return 0;
-
-	state = v4l2_subdev_get_locked_active_state(&sensor->subdev);
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
