@@ -921,6 +921,33 @@ static int imx296_init_cfg(struct v4l2_subdev *sd,
 	return 0;
 }
 
+static int imx296_open(struct v4l2_subdev *sd, struct v4l2_subdev_fh *fh)
+{
+	struct imx296 *sensor = to_imx296(sd);
+	struct v4l2_mbus_framefmt *try_fmt =
+		v4l2_subdev_get_try_format(sd, fh->state, 0);
+	struct v4l2_rect *try_crop;
+
+	mutex_lock(&sensor->mutex);
+
+	/* Initialize try_fmt */
+	try_fmt->width = IMX296_PIXEL_ARRAY_WIDTH;
+	try_fmt->height = IMX296_PIXEL_ARRAY_HEIGHT;
+	try_fmt->code = imx296_mbus_code(sensor);
+	try_fmt->field = V4L2_FIELD_NONE;
+
+	/* Initialize try_crop rectangle. */
+	try_crop = v4l2_subdev_get_try_crop(sd, fh->state, 0);
+	try_crop->top = 0;
+	try_crop->left = 0;
+	try_crop->width = IMX296_PIXEL_ARRAY_WIDTH;
+	try_crop->height = IMX296_PIXEL_ARRAY_HEIGHT;
+
+	mutex_unlock(&sensor->mutex);
+
+	return 0;
+}
+
 static const struct v4l2_subdev_video_ops imx296_subdev_video_ops = {
 	.s_stream = imx296_s_stream,
 };
@@ -940,6 +967,10 @@ static const struct v4l2_subdev_ops imx296_subdev_ops = {
 	.pad = &imx296_subdev_pad_ops,
 };
 
+static const struct v4l2_subdev_internal_ops imx296_internal_ops = {
+	.open = imx296_open,
+};
+
 static int imx296_subdev_init(struct imx296 *sensor)
 {
 	struct i2c_client *client = to_i2c_client(sensor->dev);
@@ -951,6 +982,7 @@ static int imx296_subdev_init(struct imx296 *sensor)
 	if (ret < 0)
 		return ret;
 
+	sensor->subdev.internal_ops = &imx296_internal_ops;
 	sensor->subdev.flags |= V4L2_SUBDEV_FL_HAS_DEVNODE;
 	sensor->pad.flags = MEDIA_PAD_FL_SOURCE;
 	sensor->subdev.entity.function = MEDIA_ENT_F_CAM_SENSOR;
