@@ -939,8 +939,6 @@ static int imx296_subdev_init(struct imx296 *sensor)
 
 	sensor->subdev.state_lock = sensor->subdev.ctrl_handler->lock;
 
-	v4l2_subdev_init_finalize(&sensor->subdev);
-
 	return ret;
 }
 
