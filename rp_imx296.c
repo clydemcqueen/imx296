@@ -218,8 +218,8 @@ struct imx296 {
 	struct v4l2_ctrl *vflip;
 	struct v4l2_ctrl *hflip;
 
-	struct v4l2_rect crop; // TODO init?
-	struct v4l2_mbus_framefmt fmt; // TODO init?
+	struct v4l2_rect crop;
+	struct v4l2_mbus_framefmt fmt;
 	struct mutex mutex;
 };
 
@@ -1204,6 +1204,21 @@ static int imx296_probe(struct i2c_client *client)
 	ret = imx296_identify_model(sensor);
 	if (ret < 0)
 		goto err_power;
+
+	/* Initialize fmt after model is known */
+	sensor->fmt.width = IMX296_PIXEL_ARRAY_WIDTH;
+	sensor->fmt.height = IMX296_PIXEL_ARRAY_HEIGHT;
+	sensor->fmt.code = imx296_mbus_code(sensor);
+	sensor->fmt.field = V4L2_FIELD_NONE;
+	sensor->fmt.colorspace = V4L2_COLORSPACE_RAW;
+	sensor->fmt.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	sensor->fmt.quantization = V4L2_QUANTIZATION_FULL_RANGE;
+	sensor->fmt.xfer_func = V4L2_XFER_FUNC_NONE;
+
+	sensor->crop.top = 0;
+	sensor->crop.left = 0;
+	sensor->crop.width = IMX296_PIXEL_ARRAY_WIDTH;
+	sensor->crop.height = IMX296_PIXEL_ARRAY_HEIGHT;
 
 	/* Initialize the V4L2 subdev. */
 	ret = imx296_subdev_init(sensor);
