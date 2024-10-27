@@ -219,6 +219,7 @@ struct imx296 {
 	struct v4l2_ctrl *hflip;
 
 	struct v4l2_rect crop; // TODO init?
+	struct v4l2_mbus_framefmt try_fmt; // TODO init?
 };
 
 static inline struct imx296 *to_imx296(struct v4l2_subdev *sd)
@@ -356,7 +357,6 @@ static const char * const imx296_test_pattern_menu[] = {
 static int imx296_s_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct imx296 *sensor = container_of(ctrl->handler, struct imx296, ctrls);
-	const struct v4l2_mbus_framefmt *format;
 	struct v4l2_subdev_state *state;
 	unsigned int vmax;
 	int ret = 0;
@@ -365,12 +365,11 @@ static int imx296_s_ctrl(struct v4l2_ctrl *ctrl)
 		return 0;
 
 	state = v4l2_subdev_get_locked_active_state(&sensor->subdev);
-	format = v4l2_subdev_get_pad_format(&sensor->subdev, state, 0);
 
 	switch (ctrl->id) {
 	case V4L2_CID_EXPOSURE:
 		/* Clamp the exposure value to VMAX. */
-		vmax = format->height + sensor->vblank->cur.val;
+		vmax = sensor->try_fmt.height + sensor->vblank->cur.val;
 		ctrl->val = min_t(int, ctrl->val, vmax);
 		imx296_write(sensor, IMX296_SHS1, vmax - ctrl->val, &ret);
 		break;
@@ -380,7 +379,7 @@ static int imx296_s_ctrl(struct v4l2_ctrl *ctrl)
 		break;
 
 	case V4L2_CID_VBLANK:
-		imx296_write(sensor, IMX296_VMAX, format->height + ctrl->val,
+		imx296_write(sensor, IMX296_VMAX, sensor->try_fmt.height + ctrl->val,
 			     &ret);
 		break;
 
@@ -577,11 +576,8 @@ static const struct {
 
 static int imx296_setup(struct imx296 *sensor, struct v4l2_subdev_state *state)
 {
-	const struct v4l2_mbus_framefmt *format;
 	unsigned int i;
 	int ret = 0;
-
-	format = v4l2_subdev_get_pad_format(&sensor->subdev, state, 0);
 
 	for (i = 0; i < ARRAY_SIZE(imx296_init_table); ++i)
 		imx296_write(sensor, imx296_init_table[i].reg,
@@ -603,9 +599,9 @@ static int imx296_setup(struct imx296 *sensor, struct v4l2_subdev_state *state)
 	}
 
 	imx296_write(sensor, IMX296_CTRL0D,
-		     (sensor->crop.width != format->width ?
+		     (sensor->crop.width != sensor->try_fmt.width ?
 		      IMX296_CTRL0D_HADD_ON_BINNING : 0) |
-		     (sensor->crop.height != format->height ?
+		     (sensor->crop.height != sensor->try_fmt.height ?
 		      IMX296_CTRL0D_WINMODE_FD_BINNING : 0),
 		     &ret);
 
@@ -629,7 +625,7 @@ static int imx296_setup(struct imx296 *sensor, struct v4l2_subdev_state *state)
 	 */
 	imx296_write(sensor, IMX296_HMAX, 1100, &ret);
 	imx296_write(sensor, IMX296_VMAX,
-		     format->height + sensor->vblank->cur.val, &ret);
+		     sensor->try_fmt.height + sensor->vblank->cur.val, &ret);
 
 	for (i = 0; i < ARRAY_SIZE(sensor->clk_params->incksel); ++i)
 		imx296_write(sensor, IMX296_INCKSEL(i),
@@ -755,10 +751,7 @@ static int imx296_enum_frame_size(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_state *state,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
-	const struct v4l2_mbus_framefmt *format;
 	struct imx296 *sensor = to_imx296(sd);
-
-	format = v4l2_subdev_get_pad_format(sd, state, fse->pad);
 
 	/*
 	 * Binning does not seem to work on either mono or colour sensor
@@ -780,23 +773,20 @@ static int imx296_set_format(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_format *fmt)
 {
 	struct imx296 *sensor = to_imx296(sd);
-	struct v4l2_mbus_framefmt *format;
 
-	format = v4l2_subdev_get_pad_format(sd, state, fmt->pad);
+	sensor->try_fmt.width = sensor->crop.width;
+	sensor->try_fmt.height = sensor->crop.height;
 
-	format->width = sensor->crop.width;
-	format->height = sensor->crop.height;
+	imx296_setup_hblank(sensor, sensor->try_fmt.width);
 
-	imx296_setup_hblank(sensor, format->width);
+	sensor->try_fmt.code = imx296_mbus_code(sensor);
+	sensor->try_fmt.field = V4L2_FIELD_NONE;
+	sensor->try_fmt.colorspace = V4L2_COLORSPACE_RAW;
+	sensor->try_fmt.ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
+	sensor->try_fmt.quantization = V4L2_QUANTIZATION_FULL_RANGE;
+	sensor->try_fmt.xfer_func = V4L2_XFER_FUNC_NONE;
 
-	format->code = imx296_mbus_code(sensor);
-	format->field = V4L2_FIELD_NONE;
-	format->colorspace = V4L2_COLORSPACE_RAW;
-	format->ycbcr_enc = V4L2_YCBCR_ENC_DEFAULT;
-	format->quantization = V4L2_QUANTIZATION_FULL_RANGE;
-	format->xfer_func = V4L2_XFER_FUNC_NONE;
-
-	fmt->format = *format;
+	fmt->format = sensor->try_fmt;
 
 	return 0;
 }
@@ -847,7 +837,6 @@ static int imx296_set_selection(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_selection *sel)
 {
-	struct v4l2_mbus_framefmt *format;
 	struct v4l2_rect rect;
 
 	if (sel->target != V4L2_SEL_TGT_CROP)
@@ -878,9 +867,8 @@ static int imx296_set_selection(struct v4l2_subdev *sd,
 		 * Reset the output image size if the crop rectangle size has
 		 * been modified.
 		 */
-		format = v4l2_subdev_get_pad_format(sd, state, sel->pad);
-		format->width = rect.width;
-		format->height = rect.height;
+		sensor->try_fmt.width = rect.width;
+		sensor->try_fmt.height = rect.height;
 	}
 
 	sensor->crop = rect;
