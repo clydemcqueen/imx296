@@ -220,6 +220,7 @@ struct imx296 {
 
 	struct v4l2_rect crop; // TODO init?
 	struct v4l2_mbus_framefmt fmt; // TODO init?
+	struct mutex mutex;
 };
 
 static inline struct imx296 *to_imx296(struct v4l2_subdev *sd)
@@ -428,6 +429,12 @@ static void imx296_setup_hblank(struct imx296 *sensor, unsigned int width)
 	}
 }
 
+static void imx296_ctrls_free(struct imx296 *sensor)
+{
+	v4l2_ctrl_handler_free(&sensor->ctrls);
+	mutex_destroy(&sensor->mutex);
+}
+
 static int imx296_ctrls_init(struct imx296 *sensor)
 {
 	struct v4l2_fwnode_device_properties props;
@@ -438,6 +445,9 @@ static int imx296_ctrls_init(struct imx296 *sensor)
 		return ret;
 
 	v4l2_ctrl_handler_init(&sensor->ctrls, 9);
+
+	mutex_init(&sensor->mutex);
+	sensor->ctrls.lock = &sensor->mutex;
 
 	v4l2_ctrl_new_std(&sensor->ctrls, &imx296_ctrl_ops,
 			  V4L2_CID_EXPOSURE, 1, 1048575, 1, 1104);
@@ -481,7 +491,7 @@ static int imx296_ctrls_init(struct imx296 *sensor)
 	if (sensor->ctrls.error) {
 		dev_err(sensor->dev, "failed to add controls (%d)\n",
 			sensor->ctrls.error);
-		v4l2_ctrl_handler_free(&sensor->ctrls);
+		imx296_ctrls_free(sensor);
 		return sensor->ctrls.error;
 	}
 
@@ -652,6 +662,8 @@ static int imx296_s_stream(struct v4l2_subdev *sd, int enable)
 	struct imx296 *sensor = to_imx296(sd);
 	int ret;
 
+	mutex_lock(&sensor->mutex);
+
 	if (!enable) {
 		ret = imx296_stream_off(sensor);
 
@@ -687,7 +699,7 @@ static int imx296_s_stream(struct v4l2_subdev *sd, int enable)
 		goto err_pm;
 
 unlock:
-	// TODO unlock
+	mutex_unlock(&sensor->mutex);
 
 	return ret;
 
@@ -711,7 +723,9 @@ static int imx296_enum_mbus_code(struct v4l2_subdev *sd,
 	if (code->index != 0)
 		return -EINVAL;
 
+	mutex_lock(&sensor->mutex);
 	code->code = imx296_mbus_code(sensor);
+	mutex_lock(&sensor->mutex);
 
 	return 0;
 }
@@ -726,7 +740,14 @@ static int imx296_enum_frame_size(struct v4l2_subdev *sd,
 	 * Binning does not seem to work on either mono or colour sensor
 	 * variants. Disable enumerating the binned frame size for now.
 	 */
-	if (fse->index >= 1 || fse->code != imx296_mbus_code(sensor))
+
+	if (fse->index >= 1)
+		return -EINVAL;
+
+	mutex_lock(&sensor->mutex);
+	u32 code = imx296_mbus_code(sensor);
+	mutex_unlock(&sensor->mutex);
+	if (fse->code != code)
 		return -EINVAL;
 
 	fse->min_width = IMX296_PIXEL_ARRAY_WIDTH / (fse->index + 1);
@@ -743,6 +764,7 @@ static int imx296_get_format(struct v4l2_subdev *sd,
 {
 	struct imx296 *sensor = to_imx296(sd);
 
+	mutex_lock(&sensor->mutex);
 	if (fmt->which == V4L2_SUBDEV_FORMAT_TRY) {
 		struct v4l2_mbus_framefmt *try_fmt =
 			v4l2_subdev_get_try_format(&sensor->subdev, state, fmt->pad);
@@ -758,6 +780,7 @@ static int imx296_get_format(struct v4l2_subdev *sd,
 		fmt->format.quantization = sensor->fmt.quantization;
 		fmt->format.xfer_func = sensor->fmt.xfer_func;
 	}
+	mutex_unlock(&sensor->mutex);
 
 	return 0;
 }
@@ -767,6 +790,8 @@ static int imx296_set_format(struct v4l2_subdev *sd,
 			     struct v4l2_subdev_format *fmt)
 {
 	struct imx296 *sensor = to_imx296(sd);
+
+	mutex_lock(&sensor->mutex);
 
 	sensor->fmt.width = sensor->crop.width;
 	sensor->fmt.height = sensor->crop.height;
@@ -781,6 +806,8 @@ static int imx296_set_format(struct v4l2_subdev *sd,
 	sensor->fmt.xfer_func = V4L2_XFER_FUNC_NONE;
 
 	fmt->format = sensor->fmt;
+
+	mutex_unlock(&sensor->mutex);
 
 	return 0;
 }
@@ -808,7 +835,9 @@ static int imx296_get_selection(struct v4l2_subdev *sd,
 
 	switch (sel->target) {
 	case V4L2_SEL_TGT_CROP:
+		mutex_lock(&sensor->mutex);
 		sel->r = *imx296_get_pad_crop(sensor, state, sel->pad, sel->which);
+		mutex_unlock(&sensor->mutex);
 		break;
 
 	case V4L2_SEL_TGT_CROP_DEFAULT:
@@ -927,11 +956,9 @@ static int imx296_subdev_init(struct imx296 *sensor)
 	sensor->subdev.entity.function = MEDIA_ENT_F_CAM_SENSOR;
 	ret = media_entity_pads_init(&sensor->subdev.entity, 1, &sensor->pad);
 	if (ret < 0) {
-		v4l2_ctrl_handler_free(&sensor->ctrls);
+		imx296_ctrls_free(sensor);
 		return ret;
 	}
-
-	sensor->subdev.state_lock = sensor->subdev.ctrl_handler->lock;
 
 	return ret;
 }
@@ -939,7 +966,7 @@ static int imx296_subdev_init(struct imx296 *sensor)
 static void imx296_subdev_cleanup(struct imx296 *sensor)
 {
 	media_entity_cleanup(&sensor->subdev.entity);
-	v4l2_ctrl_handler_free(&sensor->ctrls);
+	imx296_ctrls_free(sensor);
 }
 
 /* -----------------------------------------------------------------------------
