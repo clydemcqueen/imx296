@@ -735,6 +735,7 @@ static int imx296_enum_frame_size(struct v4l2_subdev *sd,
 				  struct v4l2_subdev_frame_size_enum *fse)
 {
 	struct imx296 *sensor = to_imx296(sd);
+	u32 code;
 
 	/*
 	 * Binning does not seem to work on either mono or colour sensor
@@ -745,7 +746,7 @@ static int imx296_enum_frame_size(struct v4l2_subdev *sd,
 		return -EINVAL;
 
 	mutex_lock(&sensor->mutex);
-	u32 code = imx296_mbus_code(sensor);
+	code = imx296_mbus_code(sensor);
 	mutex_unlock(&sensor->mutex);
 	if (fse->code != code)
 		return -EINVAL;
@@ -860,6 +861,7 @@ static int imx296_set_selection(struct v4l2_subdev *sd,
 				struct v4l2_subdev_state *state,
 				struct v4l2_subdev_selection *sel)
 {
+	struct imx296 *sensor = to_imx296(sd);
 	struct v4l2_rect rect;
 
 	if (sel->target != V4L2_SEL_TGT_CROP)
@@ -882,8 +884,6 @@ static int imx296_set_selection(struct v4l2_subdev *sd,
 			   IMX296_PIXEL_ARRAY_WIDTH - rect.left);
 	rect.height = min_t(unsigned int, rect.height,
 			    IMX296_PIXEL_ARRAY_HEIGHT - rect.top);
-
-	struct imx296 *sensor = to_imx296(sd);
 
 	if (rect.width != sensor->crop.width || rect.height != sensor->crop.height) {
 		/*
