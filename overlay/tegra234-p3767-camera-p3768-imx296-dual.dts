@@ -5,12 +5,12 @@
 //
 // But has VC_MIPI_MANUFACTURER removed to only work with IMX sensors
 // (not omnivision)
+//
+// Further modified to support the rp_imx296 sensor
 
 /dts-v1/;
 /plugin/;
 
-
-// #include <dt-bindings/tegra234-p3767-0000-common.h>
 
 #include <dt-bindings/clock/tegra234-clock.h>
 #include <dt-bindings/gpio/tegra234-gpio.h>
@@ -19,97 +19,44 @@
 #define CAM1_PWDN	TEGRA234_MAIN_GPIO(AC, 0)
 #define CAM_I2C_MUX	TEGRA234_AON_GPIO(CC, 3)
 
-// ------------------------------------------------------------------------------------------------
-//  Driver Configuration for NVIDIA Jetson Orin Nano/Orin NX on NVIDIA Jetson Orin Nano Developer Kit
-// ------------------------------------------------------------------------------------------------
-#define VC_MIPI_CAM_0       1   // 1: Enabled, 0: Disabled  (serial_b => CSI Port 1 => VI Stream 0)
-#define VC_MIPI_CAM_1       1   // 1: Enabled, 0: Disabled  (serial_c => CSI Port 2 => VI Stream 2)
-// ------------------------------------------------------------------------------------------------
-//  Supported number of lanes
-// -----+------------------------------------------------------------------------------------------
-//  1   | OV7251, IMX296, IMX297
-//  2   | OV9281, IMX264, IMX265
-//  2,4 | IMX178, IMX183, IMX226, IMX250, IMX252, IMX273, IMX290, IMX327, IMX335, IMX392, 
-//      | IMX412, IMX415, IMX462, IMX565, IMX566, IMX567, IMX568, IMX900
-// -----+------------------------------------------------------------------------------------------
-#define VC_MIPI_LANES       1       // 1, 2, 4 Lanes
-// ------------------------------------------------------------------------------------------------
-//  Embedded Metadata Height
-// -----+------------------------------------------------------------------------------------------
-//  0   | IMX178, IMX183, IMX226, IMX250, IMX252, IMX264, IMX265, IMX273, IMX392, OV7251, OV9281
-//  1   | IMX290, IMX327, IMX335, IMX415, IMX462, IMX900
-//  2   | IMX296, IMX297, IMX412
-//  4   | IMX565, IMX566, IMX567, IMX568
-// -----+------------------------------------------------------------------------------------------
-#define VC_MIPI_METADATA_H  "2"      // "0", "1", "2", "4" Lines of meta data
+// TODO ?
+#define IMX296_METADATA_H "2"
 
-// ------------------------------------------------------------------------------------------------
-//  GStreamer Support
-// ------------------------------------------------------------------------------------------------
-//  If you want to use GStreamer with nvarguscamerasrc you have to adjust this settings in the 
-//  device tree below. The sections which have to be modified are marked by a comment. 
-//  To find the correct parameter values please follow the instruction in the main README.md of 
-//  this repository https://github.com/VC-MIPI-modules/vc_mipi_nvidia#gstreamer-support
-// ------------------------------------------------------------------------------------------------
-
-#if VC_MIPI_LANES == 1
-        #define BUS_WIDTH 1
-        #define NUM_LANES "1" 
-        #define NUM_CSI_LANES 2
-        #define PIX_CLK_HZ "150000000"
-#endif
-#if VC_MIPI_LANES == 2
-        #define BUS_WIDTH 2
-        #define NUM_LANES "2" 
-        #define NUM_CSI_LANES 4
-        #define PIX_CLK_HZ "300000000"
-#endif
-#if VC_MIPI_LANES == 4
-        #define BUS_WIDTH 4
-        #define NUM_LANES "4" 
-        #define NUM_CSI_LANES 8
-        #define PIX_CLK_HZ "600000000"
-#endif
-
-#if VC_MIPI_CAM_1 == 1 && VC_MIPI_CAM_0 == 1
-        #define VC_MIPI_CAMERAS 2
-#else
-        #define VC_MIPI_CAMERAS 1
-#endif
+#define BUS_WIDTH 1
+#define NUM_LANES "1"
+#define NUM_CSI_LANES 2
+#define PIX_CLK_HZ "150000000"
 
 
 / {
-        overlay-name = "Camera VCMIPI Dual";
+        overlay-name = "Camera IMX296 Dual";
         jetson-header-name = "Jetson 24pin CSI Connector";
-compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005";
+        compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005";
+
         fragment@0 {
                 target-path = "/";
                 __overlay__ {
                         tegra-capture-vi  {
-                                num-channels = <VC_MIPI_CAMERAS>;
+                                num-channels = <2>;
                                 ports {
                                         #address-cells = <1>;
                                         #size-cells = <0>;
-#if VC_MIPI_CAM_0 == 1
-                                        vc_vi_port0: port@0 {
+                                        vi_port0: port@0 {
                                                 reg = <0>;
-                                                vc_vi_in0: endpoint {
+                                                imx296_vi_in0: endpoint {
                                                         port-index = <1>;
                                                         bus-width = <BUS_WIDTH>;
-                                                        remote-endpoint = <&vc_csi_out0>;
+                                                        remote-endpoint = <&imx296_csi_out0>;
                                                 };
                                         };
-#endif
-#if VC_MIPI_CAM_1 == 1
-                                        vc_vi_port1: port@1 {
+                                        vi_port1: port@1 {
                                                 reg = <1>;
-                                                vc_vi_in1: endpoint {
+                                                imx296_vi_in1: endpoint {
                                                         port-index = <2>;
                                                         bus-width = <BUS_WIDTH>;
-                                                        remote-endpoint = <&vc_csi_out1>;
+                                                        remote-endpoint = <&imx296_csi_out1>;
                                                 };
                                         };
-#endif
                                 }; // ports
                         };
                         tegra-camera-platform {
@@ -125,94 +72,85 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                 isp_bw_margin_pct = <25>;
 
                                 modules {
-#if VC_MIPI_CAM_0 == 1
                                         cam_module0: module0 {
-                                                badge = "jakku_front_vc_mipi";
+                                                badge = "jakku_front_RBP296";
                                                 position = "front";
                                                 orientation = "1";
                                                 cam_module0_drivernode0: drivernode0 {
                                                         pcl_id = "v4l2_sensor";
-                                                        devname = "vc_mipi 10-001a";
-                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@0/vc_mipi@1a";
+                                                        devname = "imx296 10-001a";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@0/imx296@1a";
                                                 };
                                                 cam_module0_drivernode1: drivernode1 {
                                                         pcl_id = "v4l2_lens";
-                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@vc_mipi";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@imx296";
                                                 };
                                         };
-#endif // VC_MIPI_CAM_0
-
-#if VC_MIPI_CAM_1 == 1
                                         cam_module1: module1 {
-                                                badge = "jakku_rear_vc_mipi";
+                                                badge = "jakku_rear_RBP296";
                                                 position = "rear";
                                                 orientation = "1";
                                                 cam_module1_drivernode0: drivernode0 {
                                                         pcl_id = "v4l2_sensor";
-                                                        devname = "vc_mipi 9-001a";
-                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@1/vc_mipi@1a";
+                                                        devname = "imx296 9-001a";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@1/imx296@1a";
                                                 };
                                                 cam_module1_drivernode1: drivernode1 {
                                                         pcl_id = "v4l2_lens";
-                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@vc_mipi/";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@imx296/";
                                                 };
                                         };
-#endif // VC_MIPI_CAM_1
                                 };
                         };
                         bus@0 {
                                 host1x@13e00000 {
                                         nvcsi@15a00000 {
-                                                num-channels = <VC_MIPI_CAMERAS>;
+                                                num-channels = <2>;
                                                 #address-cells = <1>;
                                                 #size-cells = <0>;
 
-#if VC_MIPI_CAM_0 == 1
-                                                vc_csi_chan0: channel@0 {
+                                                csi_chan0: channel@0 {
                                                         reg = <0>;
                                                         ports {
                                                                 #address-cells = <1>;
                                                                 #size-cells = <0>;
-                                                                vc_csi_chan0_port0: port@0 {
+                                                                csi_chan0_port0: port@0 {
                                                                         reg = <0>;
-                                                                        vc_csi_in0: endpoint@0 {
+                                                                        imx296_csi_in0: endpoint@0 {
                                                                                 port-index = <1>;
                                                                                 bus-width = <BUS_WIDTH>;
-                                                                                remote-endpoint = <&vc_mipi_out0>;
+                                                                                remote-endpoint = <&imx296_out0>;
                                                                         };
                                                                 };
-                                                                vc_csi_chan0_port1: port@1 {
+                                                                csi_chan0_port1: port@1 {
                                                                         reg = <1>;
-                                                                        vc_csi_out0: endpoint@1 {
-                                                                                remote-endpoint = <&vc_vi_in0>;
+                                                                        imx296_csi_out0: endpoint@1 {
+                                                                                remote-endpoint = <&imx296_vi_in0>;
                                                                         };
                                                                 };
                                                         };
                                                 };
-#endif
-#if VC_MIPI_CAM_1 == 1
-                                                vc_csi_chan1: channel@1 {
+                                                csi_chan1: channel@1 {
                                                         reg = <1>;
                                                         ports {
                                                                 #address-cells = <1>;
                                                                 #size-cells = <0>;
-                                                                vc_csi_chan1_port0: port@0 {
+                                                                csi_chan1_port0: port@0 {
                                                                         reg = <0>;
-                                                                        vc_csi_in1: endpoint@2 {
+                                                                        imx296_csi_in1: endpoint@2 {
                                                                                 port-index = <2>;
                                                                                 bus-width = <BUS_WIDTH>;
-                                                                                remote-endpoint = <&vc_mipi_out1>;
+                                                                                remote-endpoint = <&imx296_out1>;
                                                                         };
                                                                 };
-                                                                vc_csi_chan1_port1: port@1 {
+                                                                csi_chan1_port1: port@1 {
                                                                         reg = <1>;
-                                                                        vc_csi_out1: endpoint@3 {
-                                                                                remote-endpoint = <&vc_vi_in1>;
+                                                                        imx296_csi_out1: endpoint@3 {
+                                                                                remote-endpoint = <&imx296_vi_in1>;
                                                                         };
                                                                 };
                                                         };
                                                 };
-#endif
                                         };
                                 };
 
@@ -224,49 +162,44 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                         mux-gpios = <&gpio_aon CAM_I2C_MUX GPIO_ACTIVE_HIGH>;
                                         i2c-parent = <&cam_i2c>;
 
-#if VC_MIPI_CAM_0 == 1
                                         i2c@0 {
                                                 status = "okay";
                                                 reg = <0>;
                                                 #address-cells = <1>;
                                                 #size-cells = <0>;
 
-                                                vc_mipi_cam0: vc_mipi@1a {
+                                                imx296_cam0: imx296@1a {
                                                         reg                     = <0x1a>;
                                                         reset-gpios = <&gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 
-                                                        compatible              = "nvidia,vc_mipi";
+                                                        compatible              = "sony,imx296";
                                                         devnode                 = "video0";
                                                         use_sensor_mode_id      = "false";
-                                                        sensor_model            = "vc_mipi";
+                                                        sensor_model            = "imx296";
 
                                                         num_lanes               = NUM_LANES;
                                                         trigger_mode            = "0";
                                                         io_mode                 = "0";
 
                                                         // ----------------------------------------------------
-                                                        // If you want to use GStreamer with nvarguscamerasrc
-                                                        // you have to adjust this settings
-                                                        physical_w              = "1.000";
-                                                        physical_h              = "1.000";
+                                                        // Settings copied from vc_mipi_nvidia/README.md
+                                                        physical_w              = "4.968";
+                                                        physical_h              = "3.726";
                                                         // ----------------------------------------------------
-                                                        // This node is needed by the Tegra framework.
-                                                        // You don't have to change any settings if just want 
-                                                        // to use the V4L API.
+
                                                         mode0 {
                                                                 num_lanes                = NUM_LANES;
                                                                 tegra_sinterface         = "serial_b";
-                                                                embedded_metadata_height = VC_MIPI_METADATA_H;
+                                                                embedded_metadata_height = IMX296_METADATA_H;
                                                                 readout_orientation      = "0";
                                                                 lane_polarity            = "6";
 
                                                                 // ----------------------------------------------------
-                                                                // If you want to use GStreamer with nvarguscamerasrc
-                                                                // you have to adjust this settings. 
+                                                                // Some settings copied from vc_mipi_nvidia/README.md
                                                                 active_l                 = "0";
                                                                 active_t                 = "0";
-                                                                active_w                 = "0";
-                                                                active_h                 = "0";
+                                                                active_w                 = "1440";
+                                                                active_h                 = "1080";
                                                                 mode_type                = "bayer";
                                                                 pixel_phase              = "rggb";
                                                                 csi_pixel_bit_depth      = "10";
@@ -313,58 +246,54 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                                 #size-cells = <0>;
                                                                 port@0 {
                                                                         reg = <0>;
-                                                                        vc_mipi_out0: endpoint {
+                                                                        imx296_out0: endpoint {
                                                                                 port-index = <1>;
                                                                                 bus-width = <BUS_WIDTH>;
-                                                                                remote-endpoint = <&vc_csi_in0>;
+                                                                                remote-endpoint = <&imx296_csi_in0>;
                                                                         };
                                                                 };
                                                         };
                                                 };
                                         };
-#endif
 
-#if VC_MIPI_CAM_1 == 1
                                         i2c@1 {
                                                 status = "okay";
                                                 reg = <1>;
                                                 #address-cells = <1>;
                                                 #size-cells = <0>;
 
-                                                vc_mipi@1a {
+                                                imx296_cam1: imx296@1a {
                                                         reg                     = <0x1a>;
                                                         reset-gpios = <&gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
 
-                                                        compatible              = "nvidia,vc_mipi";
+                                                        compatible              = "nvidia,imx296";
                                                         devnode                 = "video1";
                                                         use_sensor_mode_id      = "false";
-                                                        sensor_model            = "vc_mipi";
+                                                        sensor_model            = "imx296";
 
                                                         num_lanes               = NUM_LANES;
                                                         trigger_mode            = "0";
                                                         io_mode                 = "0";
 
                                                         // ----------------------------------------------------
-                                                        // If you want to use GStreamer with nvarguscamerasrc
-                                                        // you have to adjust this settings
-                                                        physical_w              = "1.000";
-                                                        physical_h              = "1.000";
+                                                        // Settings copied from vc_mipi_nvidia/README.md
+                                                        physical_w              = "4.968";
+                                                        physical_h              = "3.726";
                                                         // ----------------------------------------------------
 
                                                         mode0 {
                                                                 num_lanes                = NUM_LANES;
                                                                 tegra_sinterface         = "serial_c";
-                                                                embedded_metadata_height = VC_MIPI_METADATA_H;
+                                                                embedded_metadata_height = IMX296_METADATA_H;
                                                                 readout_orientation      = "0";
                                                                 lane_polarity            = "0";
 
                                                                 // ----------------------------------------------------
-                                                                // If you want to use GStreamer with nvarguscamerasrc
-                                                                // you have to adjust this settings. 
+                                                                // Some settings copied from vc_mipi_nvidia/README.md
                                                                 active_l                 = "0";
                                                                 active_t                 = "0";
-                                                                active_w                 = "0";
-                                                                active_h                 = "0";
+                                                                active_w                 = "1440";
+                                                                active_h                 = "1080";
                                                                 mode_type                = "bayer";
                                                                 pixel_phase              = "rggb";
                                                                 csi_pixel_bit_depth      = "10";
@@ -411,20 +340,18 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                                 #size-cells = <0>;
                                                                 port@0 {
                                                                         reg = <0>;
-                                                                        vc_mipi_out1: endpoint {
+                                                                        imx296_out1: endpoint {
                                                                                 port-index = <2>;
                                                                                 bus-width = <BUS_WIDTH>;
-                                                                                remote-endpoint = <&vc_csi_in1>;
+                                                                                remote-endpoint = <&imx296_csi_in1>;
                                                                         };
                                                                 };
                                                         };
                                                 };
                                         };
-#endif
-
                                 };
 
-                                lens@vc_mipi {
+                                lens@imx296 {
                                         min_focus_distance  = "0.0";
                                         hyper_focal         = "0.0";
                                         focal_length        = "6.0";
@@ -445,14 +372,14 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
         };
 
         fragment@1 {
-		target = <&imx219_cam0>;
+		target = <&imx296_cam0>;
 		__overlay__ {
 			status = "disabled";
 		};
         };
 
         fragment@2 {
-		target = <&imx219_cam1>;
+		target = <&imx296_cam1>;
 		__overlay__ {
 			status = "disabled";
 		};
