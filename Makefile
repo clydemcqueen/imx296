@@ -14,7 +14,7 @@ modules_install:
 
 overlay_install:
 	mkdir -p $(INSTALL_MOD_PATH)/boot/
-	#install -m 0644 $(SRC)/overlay/tegra234-p3767-camera-p3768-vc_mipi-dual-imx.dtbo $(INSTALL_MOD_PATH)/boot/
+	install -m 0644 $(SRC)/overlay/tegra234-p3767-camera-p3768-dual-rp-imx296.dtbo $(INSTALL_MOD_PATH)/boot/
 
 install: modules_install overlay_install
 
