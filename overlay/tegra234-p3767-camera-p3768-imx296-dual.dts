@@ -1,0 +1,387 @@
+// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-FileCopyrightText: Copyright (c) 2023, NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+//
+// This file is derived from the VC "tegra234-p3767-camera-p3768-vc_mipi-dual.dts"
+//
+// But has VC_MIPI_MANUFACTURER removed to only work with IMX sensors
+// (not omnivision)
+//
+// Further modified to support the rp_imx296 sensor
+
+/dts-v1/;
+/plugin/;
+
+
+#include <dt-bindings/clock/tegra234-clock.h>
+#include <dt-bindings/gpio/tegra234-gpio.h>
+
+#define CAM0_PWDN	TEGRA234_MAIN_GPIO(H, 6)
+#define CAM1_PWDN	TEGRA234_MAIN_GPIO(AC, 0)
+#define CAM_I2C_MUX	TEGRA234_AON_GPIO(CC, 3)
+
+// TODO ?
+#define IMX296_METADATA_H "2"
+
+#define BUS_WIDTH 1
+#define NUM_LANES "1"
+#define NUM_CSI_LANES 2
+#define PIX_CLK_HZ "150000000"
+
+
+/ {
+        overlay-name = "Camera IMX296 Dual";
+        jetson-header-name = "Jetson 24pin CSI Connector";
+        compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005";
+
+        fragment@0 {
+                target-path = "/";
+                __overlay__ {
+                        tegra-capture-vi  {
+                                num-channels = <2>;
+                                ports {
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
+                                        vi_port0: port@0 {
+                                                reg = <0>;
+                                                imx296_vi_in0: endpoint {
+                                                        port-index = <1>;
+                                                        bus-width = <BUS_WIDTH>;
+                                                        remote-endpoint = <&imx296_csi_out0>;
+                                                };
+                                        };
+                                        vi_port1: port@1 {
+                                                reg = <1>;
+                                                imx296_vi_in1: endpoint {
+                                                        port-index = <2>;
+                                                        bus-width = <BUS_WIDTH>;
+                                                        remote-endpoint = <&imx296_csi_out1>;
+                                                };
+                                        };
+                                }; // ports
+                        };
+                        tegra-camera-platform {
+                                compatible = "nvidia, tegra-camera-platform";
+
+                                num_csi_lanes = <NUM_CSI_LANES>;
+                                max_lane_speed = <1500000>;
+                                min_bits_per_pixel = <10>;
+                                vi_peak_byte_per_pixel = <2>;
+                                vi_bw_margin_pct = <25>;
+                                max_pixel_rate = <240000>;
+                                isp_peak_byte_per_pixel = <5>;
+                                isp_bw_margin_pct = <25>;
+
+                                modules {
+                                        cam_module0: module0 {
+                                                badge = "jakku_front_RBP296";
+                                                position = "front";
+                                                orientation = "1";
+                                                cam_module0_drivernode0: drivernode0 {
+                                                        pcl_id = "v4l2_sensor";
+                                                        devname = "imx296 10-001a";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@0/imx296@1a";
+                                                };
+                                                cam_module0_drivernode1: drivernode1 {
+                                                        pcl_id = "v4l2_lens";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@imx296";
+                                                };
+                                        };
+                                        cam_module1: module1 {
+                                                badge = "jakku_rear_RBP296";
+                                                position = "rear";
+                                                orientation = "1";
+                                                cam_module1_drivernode0: drivernode0 {
+                                                        pcl_id = "v4l2_sensor";
+                                                        devname = "imx296 9-001a";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@1/imx296@1a";
+                                                };
+                                                cam_module1_drivernode1: drivernode1 {
+                                                        pcl_id = "v4l2_lens";
+                                                        sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@imx296/";
+                                                };
+                                        };
+                                };
+                        };
+                        bus@0 {
+                                host1x@13e00000 {
+                                        nvcsi@15a00000 {
+                                                num-channels = <2>;
+                                                #address-cells = <1>;
+                                                #size-cells = <0>;
+
+                                                csi_chan0: channel@0 {
+                                                        reg = <0>;
+                                                        ports {
+                                                                #address-cells = <1>;
+                                                                #size-cells = <0>;
+                                                                csi_chan0_port0: port@0 {
+                                                                        reg = <0>;
+                                                                        imx296_csi_in0: endpoint@0 {
+                                                                                port-index = <1>;
+                                                                                bus-width = <BUS_WIDTH>;
+                                                                                remote-endpoint = <&imx296_out0>;
+                                                                        };
+                                                                };
+                                                                csi_chan0_port1: port@1 {
+                                                                        reg = <1>;
+                                                                        imx296_csi_out0: endpoint@1 {
+                                                                                remote-endpoint = <&imx296_vi_in0>;
+                                                                        };
+                                                                };
+                                                        };
+                                                };
+                                                csi_chan1: channel@1 {
+                                                        reg = <1>;
+                                                        ports {
+                                                                #address-cells = <1>;
+                                                                #size-cells = <0>;
+                                                                csi_chan1_port0: port@0 {
+                                                                        reg = <0>;
+                                                                        imx296_csi_in1: endpoint@2 {
+                                                                                port-index = <2>;
+                                                                                bus-width = <BUS_WIDTH>;
+                                                                                remote-endpoint = <&imx296_out1>;
+                                                                        };
+                                                                };
+                                                                csi_chan1_port1: port@1 {
+                                                                        reg = <1>;
+                                                                        imx296_csi_out1: endpoint@3 {
+                                                                                remote-endpoint = <&imx296_vi_in1>;
+                                                                        };
+                                                                };
+                                                        };
+                                                };
+                                        };
+                                };
+
+                                cam_i2cmux {
+                                        status = "okay";
+                                        compatible = "i2c-mux-gpio";
+                                        #address-cells = <1>;
+                                        #size-cells = <0>;
+                                        mux-gpios = <&gpio_aon CAM_I2C_MUX GPIO_ACTIVE_HIGH>;
+                                        i2c-parent = <&cam_i2c>;
+
+                                        i2c@0 {
+                                                status = "okay";
+                                                reg = <0>;
+                                                #address-cells = <1>;
+                                                #size-cells = <0>;
+
+                                                imx296_cam0: imx296@1a {
+                                                        reg                     = <0x1a>;
+                                                        reset-gpios = <&gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
+
+                                                        compatible              = "sony,imx296";
+                                                        devnode                 = "video0";
+                                                        use_sensor_mode_id      = "false";
+                                                        sensor_model            = "imx296";
+
+                                                        num_lanes               = NUM_LANES;
+                                                        trigger_mode            = "0";
+                                                        io_mode                 = "0";
+
+                                                        // ----------------------------------------------------
+                                                        // Settings copied from vc_mipi_nvidia/README.md
+                                                        physical_w              = "4.968";
+                                                        physical_h              = "3.726";
+                                                        // ----------------------------------------------------
+
+                                                        mode0 {
+                                                                num_lanes                = NUM_LANES;
+                                                                tegra_sinterface         = "serial_b";
+                                                                embedded_metadata_height = IMX296_METADATA_H;
+                                                                readout_orientation      = "0";
+                                                                lane_polarity            = "6";
+
+                                                                // ----------------------------------------------------
+                                                                // Some settings copied from vc_mipi_nvidia/README.md
+                                                                active_l                 = "0";
+                                                                active_t                 = "0";
+                                                                active_w                 = "1440";
+                                                                active_h                 = "1080";
+                                                                mode_type                = "bayer";
+                                                                pixel_phase              = "rggb";
+                                                                csi_pixel_bit_depth      = "10";
+
+                                                                min_gain_val             = "0";         // mdB
+                                                                max_gain_val             = "48000";     // mdB
+                                                                step_gain_val            = "100";       // mdB
+                                                                default_gain             = "0";         // mdB
+
+                                                                min_exp_time             = "1";         // us
+                                                                max_exp_time             = "1000000";   // us
+                                                                step_exp_time            = "1";         // us
+                                                                default_exp_time         = "10000";     // us
+
+                                                                // For applications like argus_camera, there should 
+                                                                // be a minimal frame rate greater than zero!
+                                                                min_framerate            = "100";       // mHz
+                                                                max_framerate            = "60000";     // mHz
+                                                                step_framerate           = "100";       // mHz
+                                                                default_framerate        = "60000";     // mHz
+                                                                // ----------------------------------------------------
+
+                                                                gain_factor              = "1000";
+                                                                exposure_factor          = "1000000";
+                                                                framerate_factor         = "1000";
+                                                                inherent_gain            = "1";
+                                                                min_hdr_ratio            = "1";
+                                                                max_hdr_ratio            = "1";
+
+                                                                line_length              = "0";
+                                                                phy_mode                 = "DPHY";
+                                                                discontinuous_clk        = "no";
+                                                                mclk_khz                 = "24000";
+                                                                pix_clk_hz               = PIX_CLK_HZ;
+                                                                mclk_multiplier          = "0.0";		// deprecated
+                                                                cil_settletime           = "0";
+                                                                dpcm_enable              = "false";
+
+                                                                set_mode_delay_ms        = "100000";
+                                                        };
+
+                                                        ports {
+                                                                #address-cells = <1>;
+                                                                #size-cells = <0>;
+                                                                port@0 {
+                                                                        reg = <0>;
+                                                                        imx296_out0: endpoint {
+                                                                                port-index = <1>;
+                                                                                bus-width = <BUS_WIDTH>;
+                                                                                remote-endpoint = <&imx296_csi_in0>;
+                                                                        };
+                                                                };
+                                                        };
+                                                };
+                                        };
+
+                                        i2c@1 {
+                                                status = "okay";
+                                                reg = <1>;
+                                                #address-cells = <1>;
+                                                #size-cells = <0>;
+
+                                                imx296_cam1: imx296@1a {
+                                                        reg                     = <0x1a>;
+                                                        reset-gpios = <&gpio CAM1_PWDN GPIO_ACTIVE_HIGH>;
+
+                                                        compatible              = "nvidia,imx296";
+                                                        devnode                 = "video1";
+                                                        use_sensor_mode_id      = "false";
+                                                        sensor_model            = "imx296";
+
+                                                        num_lanes               = NUM_LANES;
+                                                        trigger_mode            = "0";
+                                                        io_mode                 = "0";
+
+                                                        // ----------------------------------------------------
+                                                        // Settings copied from vc_mipi_nvidia/README.md
+                                                        physical_w              = "4.968";
+                                                        physical_h              = "3.726";
+                                                        // ----------------------------------------------------
+
+                                                        mode0 {
+                                                                num_lanes                = NUM_LANES;
+                                                                tegra_sinterface         = "serial_c";
+                                                                embedded_metadata_height = IMX296_METADATA_H;
+                                                                readout_orientation      = "0";
+                                                                lane_polarity            = "0";
+
+                                                                // ----------------------------------------------------
+                                                                // Some settings copied from vc_mipi_nvidia/README.md
+                                                                active_l                 = "0";
+                                                                active_t                 = "0";
+                                                                active_w                 = "1440";
+                                                                active_h                 = "1080";
+                                                                mode_type                = "bayer";
+                                                                pixel_phase              = "rggb";
+                                                                csi_pixel_bit_depth      = "10";
+
+                                                                min_gain_val             = "0";         // mdB
+                                                                max_gain_val             = "48000";     // mdB
+                                                                step_gain_val            = "100";       // mdB
+                                                                default_gain             = "0";         // mdB
+
+                                                                min_exp_time             = "1";         // us
+                                                                max_exp_time             = "1000000";   // us
+                                                                step_exp_time            = "1";         // us
+                                                                default_exp_time         = "10000";     // us
+
+                                                                // For applications like argus_camera, there should 
+                                                                // be a minimal frame rate greater than zero!
+                                                                min_framerate            = "100";       // mHz
+                                                                max_framerate            = "60000";     // mHz
+                                                                step_framerate           = "100";       // mHz
+                                                                default_framerate        = "60000";     // mHz
+                                                                // ----------------------------------------------------
+
+                                                                gain_factor              = "1000";
+                                                                exposure_factor          = "1000000";
+                                                                framerate_factor         = "1000";
+                                                                inherent_gain            = "1";
+                                                                min_hdr_ratio            = "1";
+                                                                max_hdr_ratio            = "1";
+
+                                                                line_length              = "0";
+                                                                phy_mode                 = "DPHY";
+                                                                discontinuous_clk        = "no";
+                                                                mclk_khz                 = "24000";
+                                                                pix_clk_hz               = PIX_CLK_HZ;
+                                                                mclk_multiplier          = "0.0";		// deprecated
+                                                                cil_settletime           = "0";
+                                                                dpcm_enable              = "false";
+
+                                                                set_mode_delay_ms        = "100000";
+                                                        };
+
+                                                        ports {
+                                                                #address-cells = <1>;
+                                                                #size-cells = <0>;
+                                                                port@0 {
+                                                                        reg = <0>;
+                                                                        imx296_out1: endpoint {
+                                                                                port-index = <2>;
+                                                                                bus-width = <BUS_WIDTH>;
+                                                                                remote-endpoint = <&imx296_csi_in1>;
+                                                                        };
+                                                                };
+                                                        };
+                                                };
+                                        };
+                                };
+
+                                lens@imx296 {
+                                        min_focus_distance  = "0.0";
+                                        hyper_focal         = "0.0";
+                                        focal_length        = "6.0";
+                                        f_number            = "2.0";
+                                        aperture            = "0.0";
+                                };
+
+                                gpio@2200000 {
+                                        camera-control-output-low {
+                                                gpio-hog;
+                                                output-low;
+                                                gpios = <CAM0_PWDN 0 CAM1_PWDN 0>;
+                                                label = "cam0-pwdn","cam1-pwdn";
+                                        };
+                                };
+                        };
+                };
+        };
+
+        fragment@1 {
+		target = <&imx296_cam0>;
+		__overlay__ {
+			status = "disabled";
+		};
+        };
+
+        fragment@2 {
+		target = <&imx296_cam1>;
+		__overlay__ {
+			status = "disabled";
+		};
+        };
+};
