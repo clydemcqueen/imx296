@@ -48,9 +48,9 @@
 
 
 / {
-        overlay-name = "Camera VCMIPI Dual";
+        overlay-name = "Camera IMX296 Dual";
         jetson-header-name = "Jetson 24pin CSI Connector";
-compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005";
+        compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nvidia,p3768-0000+p3767-0003", "nvidia,p3768-0000+p3767-0004", "nvidia,p3768-0000+p3767-0005";
         fragment@0 {
                 target-path = "/";
                 __overlay__ {
@@ -101,7 +101,7 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                 orientation = "1";
                                                 cam_module0_drivernode0: drivernode0 {
                                                         pcl_id = "v4l2_sensor";
-                                                        devname = "vc_mipi 10-001a";
+                                                        devname = "rp_imx296 10-001a";
                                                         sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@0/rp_imx296@1a";
                                                 };
                                                 cam_module0_drivernode1: drivernode1 {
@@ -109,7 +109,7 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                         sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@rp_imx296";
                                                 };
                                         };
-#endif // RP_IMX296_CAM_0
+#endif
 
 #if RP_IMX296_CAM_1 == 1
                                         cam_module1: module1 {
@@ -118,7 +118,7 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                 orientation = "1";
                                                 cam_module1_drivernode0: drivernode0 {
                                                         pcl_id = "v4l2_sensor";
-                                                        devname = "vc_mipi 9-001a";
+                                                        devname = "rp_imx296 9-001a";
                                                         sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/cam_i2cmux/i2c@1/rp_imx296@1a";
                                                 };
                                                 cam_module1_drivernode1: drivernode1 {
@@ -126,7 +126,7 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                         sysfs-device-tree = "/sys/firmware/devicetree/base/bus@0/lens@rp_imx296/";
                                                 };
                                         };
-#endif // RP_IMX296_CAM_1
+#endif
                                 };
                         };
                         bus@0 {
@@ -200,7 +200,7 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                 #address-cells = <1>;
                                                 #size-cells = <0>;
 
-                                                vc_mipi_cam0: rp_imx296@1a {
+                                                rp_imx296@1a {
                                                         reg                     = <0x1a>;
                                                         reset-gpios = <&gpio CAM0_PWDN GPIO_ACTIVE_HIGH>;
 
@@ -214,10 +214,9 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                         io_mode                 = "0";
 
                                                         // ----------------------------------------------------
-                                                        // If you want to use GStreamer with nvarguscamerasrc
-                                                        // you have to adjust this settings
-                                                        physical_w              = "1.000";
-                                                        physical_h              = "1.000";
+                                                        // Settings copied from vc_mipi_nvidia/README.md
+                                                        physical_w              = "4.968";
+                                                        physical_h              = "3.726";
                                                         // ----------------------------------------------------
                                                         // This node is needed by the Tegra framework.
                                                         // You don't have to change any settings if just want 
@@ -234,8 +233,8 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                                 // you have to adjust this settings. 
                                                                 active_l                 = "0";
                                                                 active_t                 = "0";
-                                                                active_w                 = "0";
-                                                                active_h                 = "0";
+                                                                active_w                 = "1440";
+                                                                active_h                 = "1080";
                                                                 mode_type                = "bayer";
                                                                 pixel_phase              = "rggb";
                                                                 csi_pixel_bit_depth      = "10";
@@ -314,10 +313,9 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                         io_mode                 = "0";
 
                                                         // ----------------------------------------------------
-                                                        // If you want to use GStreamer with nvarguscamerasrc
-                                                        // you have to adjust this settings
-                                                        physical_w              = "1.000";
-                                                        physical_h              = "1.000";
+                                                        // Settings copied from vc_mipi_nvidia/README.md
+                                                        physical_w              = "4.968";
+                                                        physical_h              = "3.726";
                                                         // ----------------------------------------------------
 
                                                         mode0 {
@@ -332,8 +330,8 @@ compatible = "nvidia,p3768-0000+p3767-0000", "nvidia,p3768-0000+p3767-0001", "nv
                                                                 // you have to adjust this settings. 
                                                                 active_l                 = "0";
                                                                 active_t                 = "0";
-                                                                active_w                 = "0";
-                                                                active_h                 = "0";
+                                                                active_w                 = "1440";
+                                                                active_h                 = "1080";
                                                                 mode_type                = "bayer";
                                                                 pixel_phase              = "rggb";
                                                                 csi_pixel_bit_depth      = "10";
